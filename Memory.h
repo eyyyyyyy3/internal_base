@@ -33,7 +33,7 @@ public:
 	HANDLE GetProcess();
 	uintptr_t GetProcessID();
 
-	template <class Mem>
+	template <typename Mem>
 	Mem Read(uintptr_t dwAddress)
 	{
 		Mem value;
@@ -41,10 +41,22 @@ public:
 		return value;
 	}
 
-	template <class Mem>
+	template <typename Mem>
 	void Write(uintptr_t dwAddress, Mem value)
 	{
 		WriteProcessMemory(_Process, (LPVOID)dwAddress, &value, sizeof(Mem), NULL);
 	}
 
+	template<typename Mem>
+	Mem GetVTableFunction(uintptr_t _Src, size_t _Offset)
+	{
+		uintptr_t ptrVtable = *((uintptr_t*)_Src);
+		uintptr_t ptrFunction = ptrVtable + sizeof(uintptr_t) * _Offset;
+		uintptr_t ptrOriginal = *((uintptr_t*)ptrFunction);
+		return(Mem)(ptrOriginal);
+	}
+
 };
+
+extern Memory memory;
+
