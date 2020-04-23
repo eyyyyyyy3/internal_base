@@ -3,8 +3,6 @@
 #include <string>
 #include "Memory.h"
 
-Memory memory;
-
 DWORD WINAPI MainThread(LPVOID param) // our main thread
 {
 	return false;
