@@ -21,11 +21,12 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src)
 	do { _Size += Memory::GetInstructionLenght(_Src + _Size); } while (_Size < 4);
 	DWORD oldProtection, newProtection;
 
-	VirtualProtect((LPVOID)_Src, _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
+	VirtualProtect(reinterpret_cast<void*>(_Src), _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
 
-	uintptr_t gate = (uintptr_t)VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+	memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(_Src), _Size);
 
-	for (size_t i = 0; i < _Size; i++)
+	/*for (size_t i = 0; i < _Size; i++)
 	{
 		if (*(BYTE*)(_Src + i) == (BYTE)0xE8)
 		{
@@ -37,16 +38,18 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src)
 		{
 			*(BYTE*)(gate + i) = *(BYTE*)(_Src + i);
 		}
-	}
+	}*/
 
 	uintptr_t relative_offset_gate = ((_Src - gate) - 5);
-	*(BYTE*)(gate + _Size) = 0xE9; *(uintptr_t*)(gate + _Size + 1) = relative_offset_gate;
+	memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
+	memcpy(reinterpret_cast<void*>(gate + _Size + 1), reinterpret_cast<const void*>(&relative_offset_gate), sizeof(relative_offset_gate));
 
 
-	memset((LPVOID)_Src, 0x90, _Size);
+	memset(reinterpret_cast<void*>(_Src), 0x90, _Size);
 	uintptr_t relative_offset = ((_Dst - _Src) - 5);
-	*(BYTE*)_Src = 0xE9; *(uintptr_t*)(_Src + 1) = relative_offset;
-	VirtualProtect((LPVOID)_Src, _Size, oldProtection, &newProtection);
+	memset(reinterpret_cast<void*>(_Src), 0xE9, 1);
+	memcpy(reinterpret_cast<void*>(_Src + 1), reinterpret_cast<const void*>(&relative_offset), sizeof(relative_offset));
+	VirtualProtect(reinterpret_cast<void*>(_Src), _Size, oldProtection, &newProtection);
 
 	return gate;
 
@@ -58,11 +61,12 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size)
 
 	if (_Size > 4)
 	{
-		VirtualProtect((LPVOID)_Src, _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
+		VirtualProtect(reinterpret_cast<void*>(_Src), _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
 
-		uintptr_t gate = (uintptr_t)VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(_Src), _Size);
 
-		for (size_t i = 0; i < _Size; i++)
+		/*for (size_t i = 0; i < _Size; i++)
 		{
 			if (*(BYTE*)(_Src + i) == (BYTE)0xE8)
 			{
@@ -74,16 +78,18 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size)
 			{
 				*(BYTE*)(gate + i) = *(BYTE*)(_Src + i);
 			}
-		}
+		}*/
 
 		uintptr_t relative_offset_gate = ((_Src - gate) - 5);
-		*(BYTE*)(gate + _Size) = 0xE9; *(uintptr_t*)(gate + _Size + 1) = relative_offset_gate;
+		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(gate + _Size + 1), reinterpret_cast<const void*>(&relative_offset_gate), sizeof(relative_offset_gate));
 
 
-		memset((LPVOID)_Src, 0x90, _Size);
+		memset(reinterpret_cast<void*>(_Src), 0x90, _Size);
 		uintptr_t relative_offset = ((_Dst - _Src) - 5);
-		*(BYTE*)_Src = 0xE9; *(uintptr_t*)(_Src + 1) = relative_offset;
-		VirtualProtect((LPVOID)_Src, _Size, oldProtection, &newProtection);
+		memset(reinterpret_cast<void*>(_Src), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(_Src + 1), reinterpret_cast<const void*>(&relative_offset), sizeof(relative_offset));
+		VirtualProtect(reinterpret_cast<void*>(_Src), _Size, oldProtection, &newProtection);
 
 		return gate;
 	}
@@ -94,13 +100,14 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size, s
 {
 	DWORD oldProtection, newProtection;
 
-	if (_Size > 4 && (_SkipBytes + _Size) <= sizeof(MEMORY_BASIC_INFORMATION))
+	if (_Size > 4)
 	{
-		VirtualProtect((LPVOID)(_Src + _SkipBytes), _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
+		VirtualProtect(reinterpret_cast<void*>(_Src + _SkipBytes), _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
 
-		uintptr_t gate = (uintptr_t)VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(_Src + _SkipBytes), _Size);
 
-		for (size_t i = 0; i < _Size; i++)
+		/*for (size_t i = 0; i < _Size; i++)
 		{
 			if (*(BYTE*)(_Src + _SkipBytes + i) == (BYTE)0xE8)
 			{
@@ -112,16 +119,18 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size, s
 			{
 				*(BYTE*)(gate + i) = *(BYTE*)(_Src + _SkipBytes + i);
 			}
-		}
+		}*/
 
 		uintptr_t relative_offset_gate = (((_Src + _SkipBytes) - gate) - 5);
-		*(BYTE*)(gate + _Size) = 0xE9; *(uintptr_t*)(gate + _Size + 1) = relative_offset_gate;
+		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(gate + _Size + 1), reinterpret_cast<const void*>(&relative_offset_gate), sizeof(relative_offset_gate));
 
 
-		memset((LPVOID)(_Src + _SkipBytes), 0x90, _Size);
+		memset(reinterpret_cast<void*>(_Src + _SkipBytes), 0x90, _Size);
 		uintptr_t relative_offset = ((_Dst - (_Src + _SkipBytes)) - 5);
-		*(BYTE*)(_Src + _SkipBytes) = 0xE9; *(uintptr_t*)((_Src + _SkipBytes) + 1) = relative_offset;
-		VirtualProtect((LPVOID)(_Src + _SkipBytes), _Size, oldProtection, &newProtection);
+		memset(reinterpret_cast<void*>(_Src + _SkipBytes), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(_Src + _SkipBytes + 1), reinterpret_cast<const void*>(&relative_offset), sizeof(relative_offset));
+		VirtualProtect(reinterpret_cast<void*>(_Src + _SkipBytes), _Size, oldProtection, &newProtection);
 
 		return gate;
 	}
@@ -130,14 +139,14 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size, s
 
 uintptr_t  Memory::VTableFunctionSwap(uintptr_t _Dst, uintptr_t _Src, size_t _Offset)
 {
-	uintptr_t ptrVtable = *((uintptr_t*)_Src);
+	uintptr_t ptrVtable = *reinterpret_cast<uintptr_t*>(_Src);
 	uintptr_t ptrFunction = ptrVtable + sizeof(uintptr_t) * _Offset;
-	uintptr_t ptrOriginal = *((uintptr_t*)ptrFunction);
+	uintptr_t ptrOriginal = *reinterpret_cast<uintptr_t*>(ptrFunction);
 
 	MEMORY_BASIC_INFORMATION _MemoryInfo;
-	VirtualQuery((LPCVOID)ptrFunction, &_MemoryInfo, sizeof(_MemoryInfo));
+	VirtualQuery(reinterpret_cast<LPCVOID>(ptrFunction), &_MemoryInfo, sizeof(_MemoryInfo));
 	VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, PAGE_EXECUTE_READWRITE, &_MemoryInfo.Protect);
-	*((uintptr_t*)ptrFunction) = _Dst;
+	memcpy(reinterpret_cast<void*>(ptrFunction), reinterpret_cast<const void*>(_Dst), sizeof(_Dst));
 	VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, _MemoryInfo.Protect, &_MemoryInfo.Protect);
 	return ptrOriginal;
 }
@@ -149,12 +158,14 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 	do { _Size += Memory::GetInstructionLenght(function_address + _Size); } while (_Size < 4);
 	cout << _Size << endl;
 	MEMORY_BASIC_INFORMATION _MemoryInfo;
-	VirtualQuery((LPCVOID)function_address, &_MemoryInfo, sizeof(_MemoryInfo));
+	VirtualQuery(reinterpret_cast<LPCVOID>(function_address), &_MemoryInfo, sizeof(_MemoryInfo));
 	VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, PAGE_EXECUTE_READWRITE, &_MemoryInfo.Protect);
 
-	uintptr_t gate = (uintptr_t)VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 
-	for (size_t i = 0; i < _Size; i++)
+	memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(function_address), _Size);
+
+	/*for (size_t i = 0; i < _Size; i++)
 	{
 		if (*(BYTE*)(function_address + i) == (BYTE)0xE8)
 		{
@@ -166,16 +177,19 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 		{
 			*(BYTE*)(gate + i) = *(BYTE*)(function_address + i);
 		}
-	}
+
+
+	}*/
 
 
 	uintptr_t relative_offset_gate = ((function_address - gate) - 5);
-	*(BYTE*)(gate + _Size) = 0xE9; *(uintptr_t*)(gate + _Size + 1) = relative_offset_gate;
+	memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
+	memcpy(reinterpret_cast<void*>(gate + _Size + 1), reinterpret_cast<const void*>(&relative_offset_gate), sizeof(relative_offset_gate));
 
-
-	memset((LPVOID)function_address, 0x90, _Size);
+	memset(reinterpret_cast<void*>(function_address), 0x90, _Size);
 	uintptr_t relative_offset = ((_Dst - function_address) - 5);
-	*(BYTE*)function_address = 0xE9; *(uintptr_t*)(function_address + 1) = relative_offset;
+	memset(reinterpret_cast<void*>(function_address), 0xE9, 1);
+	memcpy(reinterpret_cast<void*>(function_address + 1), reinterpret_cast<const void*>(&relative_offset), sizeof(relative_offset));
 	VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, _MemoryInfo.Protect, &_MemoryInfo.Protect);
 	return gate;
 }
@@ -187,12 +201,13 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 		uintptr_t function_address = Memory::GetVTableFunction<uintptr_t>(_Src, _Offset);
 
 		MEMORY_BASIC_INFORMATION _MemoryInfo;
-		VirtualQuery((LPCVOID)function_address, &_MemoryInfo, sizeof(_MemoryInfo));
+		VirtualQuery(reinterpret_cast<LPCVOID>(function_address), &_MemoryInfo, sizeof(_MemoryInfo));
 		VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, PAGE_EXECUTE_READWRITE, &_MemoryInfo.Protect);
 
-		uintptr_t gate = (uintptr_t)VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(function_address), _Size);
 
-		for (size_t i = 0; i < _Size; i++)
+		/*for (size_t i = 0; i < _Size; i++)
 		{
 			if (*(BYTE*)(function_address + i) == (BYTE)0xE8)
 			{
@@ -204,16 +219,18 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 			{
 				*(BYTE*)(gate + i) = *(BYTE*)(function_address + i);
 			}
-		}
+		}*/
 
 
 		uintptr_t relative_offset_gate = ((function_address - gate) - 5);
-		*(BYTE*)(gate + _Size) = 0xE9; *(uintptr_t*)(gate + _Size + 1) = relative_offset_gate;
+		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(gate + _Size + 1), reinterpret_cast<const void*>(&relative_offset_gate), sizeof(relative_offset_gate));
 
 
-		memset((LPVOID)function_address, 0x90, _Size);
+		memset(reinterpret_cast<void*>(function_address), 0x90, _Size);
 		uintptr_t relative_offset = ((_Dst - function_address) - 5);
-		*(BYTE*)function_address = 0xE9; *(uintptr_t*)(function_address + 1) = relative_offset;
+		memset(reinterpret_cast<void*>(function_address), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(function_address + 1), reinterpret_cast<const void*>(&relative_offset), sizeof(relative_offset));
 		VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, _MemoryInfo.Protect, &_MemoryInfo.Protect);
 		return gate;
 	}
@@ -222,20 +239,20 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 
 uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_t _Offset, size_t _Size, size_t _SkipBytes)
 {
-	//if (_Size > 4) // maybe < instead of <=
-	if (_Size > 4 && (_SkipBytes + _Size) <= sizeof(MEMORY_BASIC_INFORMATION)) // maybe < instead of <=
+	if (_Size > 4)//&& (_SkipBytes + _Size) <= sizeof(MEMORY_BASIC_INFORMATION)) // maybe < instead of <=
 	{
 
 		uintptr_t function_address = Memory::GetVTableFunction<uintptr_t>(_Src, _Offset);
 
 		MEMORY_BASIC_INFORMATION _MemoryInfo;
-		VirtualQuery((LPCVOID)function_address, &_MemoryInfo, sizeof(_MemoryInfo));
+		VirtualQuery(reinterpret_cast<LPCVOID>(function_address + _SkipBytes), &_MemoryInfo, sizeof(_MemoryInfo));
 		//VirtualQuery((LPCVOID)(function_address + _SkipBytes), &_MemoryInfo, sizeof(_MemoryInfo));
 		VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, PAGE_EXECUTE_READWRITE, &_MemoryInfo.Protect);
 
-		uintptr_t gate = (uintptr_t)VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(function_address + _SkipBytes), _Size);
 
-		for (size_t i = 0; i < _Size; i++)
+		/*for (size_t i = 0; i < _Size; i++)
 		{
 			if (*(BYTE*)(function_address + _SkipBytes + i) == (BYTE)0xE8)
 			{
@@ -247,15 +264,17 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 			{
 				*(BYTE*)(gate + i) = *(BYTE*)(function_address + _SkipBytes + i);
 			}
-		}
+		}*/
 
 		uintptr_t relative_offset_gate = (((function_address + _SkipBytes) - gate) - 5);
-		*(BYTE*)(gate + _Size) = 0xE9; *(uintptr_t*)(gate + _Size + 1) = relative_offset_gate;
+		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(gate + _Size + 1), reinterpret_cast<const void*>(&relative_offset_gate), sizeof(relative_offset_gate));
 
 
-		memset((LPVOID)(function_address + _SkipBytes), 0x90, _Size);
+		memset(reinterpret_cast<void*>(function_address + _SkipBytes), 0x90, _Size);
 		uintptr_t relative_offset = ((_Dst - (function_address + _SkipBytes)) - 5);
-		*(BYTE*)(function_address + _SkipBytes) = 0xE9; *(uintptr_t*)(function_address + _SkipBytes + 1) = relative_offset;
+		memset(reinterpret_cast<void*>(function_address), 0xE9, 1);
+		memcpy(reinterpret_cast<void*>(function_address + _SkipBytes + 1), reinterpret_cast<const void*>(&relative_offset), sizeof(relative_offset));
 		VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, _MemoryInfo.Protect, &_MemoryInfo.Protect);
 		return gate;
 	}
@@ -276,12 +295,12 @@ Memory::Module Memory::LoadModule(char* _Module)
 				if (!strcmp(_ME.szModule, _Module))
 				{
 					CloseHandle(hModule);
-					return { (uintptr_t)_ME.hModule, _ME.modBaseSize };
+					return { reinterpret_cast<uintptr_t>(_ME.hModule), _ME.modBaseSize };
 				}
 			} while (Module32Next(hModule, &_ME));
 		}
 	}
-	return { (uintptr_t)false, (uintptr_t)false };
+	return { static_cast<uintptr_t>(false), static_cast<uintptr_t>(false) };
 }
 
 bool Memory::CompareData(const BYTE* _PDATA, const BYTE* _PMASK, const char* _PSZMASK)
@@ -305,16 +324,16 @@ uintptr_t Memory::FindPattern(char* _Module, const char* _Signature, const char*
 
 		unsigned long bytesRead;
 
-		if (!ReadProcessMemory(Memory::_Process, (LPCVOID)_ModuleInfo.lpBaseOfDll, data, _ModuleInfo.SizeOfImage, &bytesRead))
+		if (!ReadProcessMemory(Memory::_Process, reinterpret_cast<LPCVOID>(_ModuleInfo.lpBaseOfDll), data, _ModuleInfo.SizeOfImage, &bytesRead))
 		{
 			return NULL;
 		}
 
 		for (uintptr_t i = 0; i < _ModuleInfo.SizeOfImage; i++)
 		{
-			if (Memory::CompareData((const BYTE*)(data + i), (const BYTE*)_Signature, _Mask))
+			if (Memory::CompareData(reinterpret_cast<const BYTE*>(data + i), reinterpret_cast<const BYTE*>(_Signature), _Mask))
 			{
-				return ((uintptr_t)_ModuleInfo.lpBaseOfDll + i);
+				return _ModuleInfo.lpBaseOfDll + i;
 			}
 		}
 	}
@@ -326,7 +345,7 @@ uintptr_t Memory::FindPattern(const char* _Signature, const char* _Mask, uintptr
 	for (uintptr_t i = 0; i < _KernelMemory; i++)
 	{
 		MEMORY_BASIC_INFORMATION _MemoryInfo = { 0 };
-		if (!VirtualQuery((LPCVOID)i, &_MemoryInfo, sizeof(MEMORY_BASIC_INFORMATION)))
+		if (!VirtualQuery(reinterpret_cast<LPCVOID>(i), &_MemoryInfo, sizeof(MEMORY_BASIC_INFORMATION)))
 		{
 			continue;
 		}
@@ -335,7 +354,7 @@ uintptr_t Memory::FindPattern(const char* _Signature, const char* _Mask, uintptr
 			BYTE* data = new BYTE[_MemoryInfo.RegionSize];
 			for (uintptr_t k = 0; k < _MemoryInfo.RegionSize; k++)
 			{
-				if (Memory::CompareData((const BYTE*)(data + k), (const BYTE*)_Signature, _Mask))
+				if (Memory::CompareData(reinterpret_cast<const BYTE*>(data + k), reinterpret_cast<const BYTE*>(_Signature), _Mask))
 				{
 					return i;
 				}
@@ -343,7 +362,7 @@ uintptr_t Memory::FindPattern(const char* _Signature, const char* _Mask, uintptr
 		}
 		i += _MemoryInfo.RegionSize;
 	}
-	return 0;
+	return NULL;
 }
 
 uintptr_t Memory::FindArray(char* _Module, const char* _Mask, int argCount, ...)
@@ -489,4 +508,3 @@ size_t Memory::GetInstructionLenght(uintptr_t address)
 }
 
 Memory memory;
-

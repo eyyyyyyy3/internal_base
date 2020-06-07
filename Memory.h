@@ -44,23 +44,23 @@ public:
 	Mem Read(uintptr_t dwAddress)
 	{
 		Mem value;
-		ReadProcessMemory(_Process, (LPVOID)dwAddress, &value, sizeof(Mem), NULL);
+		ReadProcessMemory(_Process, reinterpret_cast<LPCVOID>(dwAddress), &value, sizeof(Mem), NULL);
 		return value;
 	}
 
 	template <typename Mem>
 	void Write(uintptr_t dwAddress, Mem value)
 	{
-		WriteProcessMemory(_Process, (LPVOID)dwAddress, &value, sizeof(Mem), NULL);
+		WriteProcessMemory(_Process, reinterpret_cast<LPVOID>(dwAddress), &value, sizeof(Mem), NULL);
 	}
 
 	template<typename Mem>
 	Mem GetVTableFunction(uintptr_t _Src, size_t _Offset)
 	{
-		uintptr_t ptrVtable = *((uintptr_t*)_Src);
+		uintptr_t ptrVtable = *reinterpret_cast<uintptr_t*>(_Src);
 		uintptr_t ptrFunction = ptrVtable + sizeof(uintptr_t) * _Offset;
-		uintptr_t ptrOriginal = *((uintptr_t*)ptrFunction);
-		return(Mem)(ptrOriginal);
+		uintptr_t ptrOriginal = *reinterpret_cast<uintptr_t*>(ptrFunction);
+		return (Mem)ptrOriginal;
 	}
 
 };
