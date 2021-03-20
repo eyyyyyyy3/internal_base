@@ -39,6 +39,7 @@ public:
 	HANDLE GetProcess();
 	uintptr_t GetProcessID();
 	size_t GetInstructionLenght(uintptr_t address);
+	bool RecalculateInstruction(BYTE _Byte);
 
 	template <typename Mem>
 	Mem Read(uintptr_t dwAddress)
@@ -66,4 +67,3 @@ public:
 };
 
 extern Memory memory;
-

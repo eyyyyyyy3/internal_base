@@ -8,6 +8,8 @@
 #define R (*b >> 4)
 #define C (*b & 0xF)
 
+#define MaxRecalcArray 5
+
 static const uint8_t prefixes[] = { 0xF0, 0xF2, 0xF3, 0x2E, 0x36, 0x3E, 0x26, 0x64, 0x65, 0x66, 0x67 };
 static const uint8_t op1modrm[] = { 0x62, 0x63, 0x69, 0x6B, 0xC0, 0xC1, 0xC4, 0xC5, 0xC6, 0xC7, 0xD0, 0xD1, 0xD2, 0xD3, 0xF6, 0xF7, 0xFE, 0xFF };
 static const uint8_t op1imm8[] = { 0x6A, 0x6B, 0x80, 0x82, 0x83, 0xA8, 0xC0, 0xC1, 0xC6, 0xCD, 0xD4, 0xD5, 0xEB };
@@ -18,27 +20,32 @@ static const uint8_t op2modrm[] = { 0x0D, 0xA3, 0xA4, 0xA5, 0xAB, 0xAC, 0xAD, 0x
 uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src)
 {
 	size_t _Size = 0;
-	do { _Size += Memory::GetInstructionLenght(_Src + _Size); } while (_Size < 4);
-	DWORD oldProtection, newProtection;
+	size_t _RecalcArray[MaxRecalcArray];
+	int _Index = 0;
+
+	do {
+		if (_Index < MaxRecalcArray && (*(BYTE*)(_Src + _Size) == (BYTE)0xE8))
+		{
+			_RecalcArray[_Index] = _Size;
+			_Index += 1;
+		}
+		_Size += Memory::GetInstructionLenght(_Src + _Size);
+	} while (_Size < 4);	DWORD oldProtection, newProtection;
 
 	VirtualProtect(reinterpret_cast<void*>(_Src), _Size, PAGE_EXECUTE_READWRITE, &oldProtection);
 
 	uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 	memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(_Src), _Size);
 
-	/*for (size_t i = 0; i < _Size; i++)
+	if (_Index)
 	{
-		if (*(BYTE*)(_Src + i) == (BYTE)0xE8)
+		for (int i = 0; i < _Index; i++)
 		{
-			uintptr_t relative_offset_redirect = ((*((uintptr_t*)(_Src + i + 1)) + (uintptr_t)(_Src + i + 5)) - (gate + i + 5));
-
-			*(BYTE*)(gate + i) = *(BYTE*)(_Src + i); *(uintptr_t*)(gate + i + 1) = relative_offset_redirect; i += 4;
+			*(uintptr_t*)(gate + _RecalcArray[i] + 1) = (*(uintptr_t*)(_Src + _RecalcArray[i] + 1) + (uintptr_t)(_Src + _RecalcArray[i] + 5)) - (gate + _RecalcArray[i] + 5);
+			/*uintptr_t relative_offset_redirect = (*(uintptr_t*)(function_address + _RecalcArray[i] + 1) + (uintptr_t)(function_address + _RecalcArray[i] + 5)) - (gate + _RecalcArray[i] + 5);
+			memcpy(reinterpret_cast<void*>(gate + _RecalcArray[i] + 1), reinterpret_cast<void*>(&relative_offset_redirect), sizeof(relative_offset_redirect));*/
 		}
-		else
-		{
-			*(BYTE*)(gate + i) = *(BYTE*)(_Src + i);
-		}
-	}*/
+	}
 
 	uintptr_t relative_offset_gate = ((_Src - gate) - 5);
 	memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
@@ -66,19 +73,13 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size)
 		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(_Src), _Size);
 
-		/*for (size_t i = 0; i < _Size; i++)
+		for (size_t i = 0; i < _Size; i += Memory::GetInstructionLenght(_Src + i))
 		{
-			if (*(BYTE*)(_Src + i) == (BYTE)0xE8)
+			if (Memory::RecalculateInstruction(*(BYTE*)(_Src + i)))
 			{
-				uintptr_t relative_offset_redirect = ((*((uintptr_t*)(_Src + i + 1)) + (uintptr_t)(_Src + i + 5)) - (gate + i + 5));
-
-				*(BYTE*)(gate + i) = *(BYTE*)(_Src + i); *(uintptr_t*)(gate + i + 1) = relative_offset_redirect; i += 4;
+				*(uintptr_t*)(gate + i + 1) = (*(uintptr_t*)(_Src + i + 1) + (uintptr_t)(_Src + i + 5)) - (gate + i + 5);
 			}
-			else
-			{
-				*(BYTE*)(gate + i) = *(BYTE*)(_Src + i);
-			}
-		}*/
+		}
 
 		uintptr_t relative_offset_gate = ((_Src - gate) - 5);
 		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
@@ -107,19 +108,13 @@ uintptr_t Memory::trampolineHook(uintptr_t _Dst, uintptr_t _Src, size_t _Size, s
 		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(_Src + _SkipBytes), _Size);
 
-		/*for (size_t i = 0; i < _Size; i++)
+		for (size_t i = 0; i < _Size; i += Memory::GetInstructionLenght(_Src + _SkipBytes + i))
 		{
-			if (*(BYTE*)(_Src + _SkipBytes + i) == (BYTE)0xE8)
+			if (Memory::RecalculateInstruction(*(BYTE*)(_Src + _SkipBytes + i)))
 			{
-				uintptr_t relative_offset_redirect = ((*((uintptr_t*)(_Src + _SkipBytes + i + 1)) + (uintptr_t)(_Src + _SkipBytes + i + 5)) - (gate + i + 5));
-
-				*(BYTE*)(gate + i) = *(BYTE*)(_Src + _SkipBytes + i); *(uintptr_t*)(gate + i + 1) = relative_offset_redirect; i += 4;
+				*(uintptr_t*)(gate + i + 1) = (*(uintptr_t*)(_Src + _SkipBytes + i + 1) + (uintptr_t)(_Src + _SkipBytes + i + 5)) - (gate + i + 5);
 			}
-			else
-			{
-				*(BYTE*)(gate + i) = *(BYTE*)(_Src + _SkipBytes + i);
-			}
-		}*/
+		}
 
 		uintptr_t relative_offset_gate = (((_Src + _SkipBytes) - gate) - 5);
 		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
@@ -154,32 +149,34 @@ uintptr_t  Memory::VTableFunctionSwap(uintptr_t _Dst, uintptr_t _Src, size_t _Of
 uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_t _Offset)
 {
 	size_t _Size = 0;
+	size_t _RecalcArray[MaxRecalcArray];
+	int _Index = 0;
 	uintptr_t function_address = Memory::GetVTableFunction<uintptr_t>(_Src, _Offset);
-	do { _Size += Memory::GetInstructionLenght(function_address + _Size); } while (_Size < 4);
+	do {
+		if (_Index < MaxRecalcArray && Memory::RecalculateInstruction(*(BYTE*)(function_address + _Size)))
+		{
+			_RecalcArray[_Index] = _Size;
+			_Index += 1;
+		}
+		_Size += Memory::GetInstructionLenght(function_address + _Size);
+	} while (_Size < 4);
 	cout << _Size << endl;
 	MEMORY_BASIC_INFORMATION _MemoryInfo;
 	VirtualQuery(reinterpret_cast<LPCVOID>(function_address), &_MemoryInfo, sizeof(_MemoryInfo));
 	VirtualProtect(_MemoryInfo.BaseAddress, _MemoryInfo.RegionSize, PAGE_EXECUTE_READWRITE, &_MemoryInfo.Protect);
 
 	uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
-
 	memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(function_address), _Size);
 
-	/*for (size_t i = 0; i < _Size; i++)
+	if (_Index)
 	{
-		if (*(BYTE*)(function_address + i) == (BYTE)0xE8)
+		for (int i = 0; i < _Index; i++)
 		{
-			uintptr_t relative_offset_redirect = ((*((uintptr_t*)(function_address + i + 1)) + (uintptr_t)(function_address + i + 5)) - (gate + i + 5));
-
-			*(BYTE*)(gate + i) = *(BYTE*)(function_address + i); *(uintptr_t*)(gate + i + 1) = relative_offset_redirect; i += 4;
+			*(uintptr_t*)(gate + _RecalcArray[i] + 1) = (*(uintptr_t*)(function_address + _RecalcArray[i] + 1) + (uintptr_t)(function_address + _RecalcArray[i] + 5)) - (gate + _RecalcArray[i] + 5);
+			/*uintptr_t relative_offset_redirect = (*(uintptr_t*)(function_address + _RecalcArray[i] + 1) + (uintptr_t)(function_address + _RecalcArray[i] + 5)) - (gate + _RecalcArray[i] + 5);
+			memcpy(reinterpret_cast<void*>(gate + _RecalcArray[i] + 1), reinterpret_cast<void*>(&relative_offset_redirect), sizeof(relative_offset_redirect));*/
 		}
-		else
-		{
-			*(BYTE*)(gate + i) = *(BYTE*)(function_address + i);
-		}
-
-
-	}*/
+	}
 
 
 	uintptr_t relative_offset_gate = ((function_address - gate) - 5);
@@ -207,20 +204,13 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(function_address), _Size);
 
-		/*for (size_t i = 0; i < _Size; i++)
+		for (size_t i = 0; i < _Size; i += Memory::GetInstructionLenght(function_address + i))
 		{
-			if (*(BYTE*)(function_address + i) == (BYTE)0xE8)
+			if (Memory::RecalculateInstruction(*(BYTE*)(function_address + i)))
 			{
-				uintptr_t relative_offset_redirect = ((*((uintptr_t*)(function_address + i + 1)) + (uintptr_t)(function_address + i + 5)) - (gate + i + 5));
-
-				*(BYTE*)(gate + i) = *(BYTE*)(function_address + i); *(uintptr_t*)(gate + i + 1) = relative_offset_redirect; i += 4;
+				*(uintptr_t*)(gate + i + 1) = (*(uintptr_t*)(function_address + i + 1) + (uintptr_t)(function_address + i + 5)) - (gate + i + 5);
 			}
-			else
-			{
-				*(BYTE*)(gate + i) = *(BYTE*)(function_address + i);
-			}
-		}*/
-
+		}
 
 		uintptr_t relative_offset_gate = ((function_address - gate) - 5);
 		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
@@ -252,19 +242,14 @@ uintptr_t Memory::VTableFunctionTrampoline(uintptr_t _Dst, uintptr_t _Src, size_
 		uintptr_t gate = reinterpret_cast<uintptr_t>(VirtualAlloc(NULL, (_Size + 5), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 		memcpy(reinterpret_cast<void*>(gate), reinterpret_cast<const void*>(function_address + _SkipBytes), _Size);
 
-		/*for (size_t i = 0; i < _Size; i++)
+		for (size_t i = 0; i < _Size; i += Memory::GetInstructionLenght(function_address + _SkipBytes + i))
 		{
-			if (*(BYTE*)(function_address + _SkipBytes + i) == (BYTE)0xE8)
+			if (Memory::RecalculateInstruction(*(BYTE*)(function_address + _SkipBytes + i)))
 			{
-				uintptr_t relative_offset_redirect = ((*((uintptr_t*)(function_address + _SkipBytes + i + 1)) + (uintptr_t)(function_address + _SkipBytes + i + 5)) - (gate + i + 5));
+				*(uintptr_t*)(gate + i + 1) = (*(uintptr_t*)(function_address + _SkipBytes + i + 1) + (uintptr_t)(function_address + _SkipBytes + i + 5)) - (gate + i + 5);
+			}
+		}
 
-				*(BYTE*)(gate + i) = *(BYTE*)(function_address + _SkipBytes + i); *(uintptr_t*)(gate + i + 1) = relative_offset_redirect; i += 4;
-			}
-			else
-			{
-				*(BYTE*)(gate + i) = *(BYTE*)(function_address + _SkipBytes + i);
-			}
-		}*/
 
 		uintptr_t relative_offset_gate = (((function_address + _SkipBytes) - gate) - 5);
 		memset(reinterpret_cast<void*>(gate + _Size), 0xE9, 1);
@@ -505,6 +490,15 @@ size_t Memory::GetInstructionLenght(uintptr_t address)
 
 		return (size_t)((ptrdiff_t)(++b + offset) - (ptrdiff_t)(address));
 	}
+}
+
+bool Memory::RecalculateInstruction(BYTE _Byte)
+{
+	if (_Byte == (BYTE)0xE8)
+	{
+		return true;
+	}
+	return false;
 }
 
 Memory memory;
